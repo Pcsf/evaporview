@@ -70,29 +70,29 @@
   "When non-nil, opening a dump loads its session file if one exists."
   :type 'boolean)
 
-(defface evaporview-color-1 '((((background dark)) :foreground "#4ec95d")
-                              (t :foreground "#1a7f2e"))
+(defface evaporview-color-1 '((((background dark)) :foreground "#56b4e9")
+                              (t :foreground "#0072b2"))
   "Waveform color 1.")
-(defface evaporview-color-2 '((((background dark)) :foreground "#4fc1ff")
-                              (t :foreground "#0b62a8"))
+(defface evaporview-color-2 '((((background dark)) :foreground "#ff9a52")
+                              (t :foreground "#d55e00"))
   "Waveform color 2.")
-(defface evaporview-color-3 '((((background dark)) :foreground "#c586c0")
-                              (t :foreground "#8a2b8a"))
+(defface evaporview-color-3 '((((background dark)) :foreground "#3fd1a0")
+                              (t :foreground "#00875f"))
   "Waveform color 3.")
-(defface evaporview-color-4 '((((background dark)) :foreground "#dcdcaa")
-                              (t :foreground "#7a6a00"))
+(defface evaporview-color-4 '((((background dark)) :foreground "#f08ac0")
+                              (t :foreground "#b8408c"))
   "Waveform color 4.")
-(defface evaporview-color-5 '((((background dark)) :foreground "#ce9178")
-                              (t :foreground "#a3461f"))
+(defface evaporview-color-5 '((((background dark)) :foreground "#f0d34a")
+                              (t :foreground "#8c6d00"))
   "Waveform color 5.")
-(defface evaporview-color-6 '((((background dark)) :foreground "#4ec9b0")
-                              (t :foreground "#11786a"))
+(defface evaporview-color-6 '((((background dark)) :foreground "#7fb6ff")
+                              (t :foreground "#1a8fd0"))
   "Waveform color 6.")
-(defface evaporview-color-7 '((((background dark)) :foreground "#9cdcfe")
-                              (t :foreground "#2d5ba3"))
+(defface evaporview-color-7 '((((background dark)) :foreground "#b88aff")
+                              (t :foreground "#7b3fa0"))
   "Waveform color 7.")
-(defface evaporview-color-8 '((((background dark)) :foreground "#f48771")
-                              (t :foreground "#b02a1a"))
+(defface evaporview-color-8 '((((background dark)) :foreground "#a9b8c0")
+                              (t :foreground "#5c6b73"))
   "Waveform color 8.")
 (defface evaporview-x-face '((t :foreground "red"))
   "Unknown (x, u, w, -) values.")
@@ -1109,7 +1109,11 @@ or `fall') of that 1-bit signal is one, sampled at the edge."
               (sort (delete-dups ts) #'<))))
          (events (cl-subseq events 0 (min (length events) evaporview-wavedrom-max-events))))
     (json-encode
-     `((signal
+     `((head . ((text . ,(format "%s  %s - %s"
+                                 (file-name-nondirectory (or (evaporview-view-file v) ""))
+                                 (evaporview--fmt-time lo) (evaporview--fmt-time hi)))
+                ,@(and clock '((tick . 0)))))
+       (signal
         . ,(vconcat
             (mapcar
              (lambda (it)
@@ -1137,19 +1141,106 @@ or `fall') of that 1-bit signal is one, sampled at the edge."
                    ,@(and data `((data . ,(vconcat (nreverse data))))))))
              items)))))))
 
-(defun evaporview-wavedrom-copy (&optional clocked)
+(defun evaporview--wavedrom-args (clocked)
+  "Interactive (CLOCK EDGE) for the WaveDrom commands; nil unless CLOCKED."
+  (if (not clocked) (list nil nil)
+    (list (completing-read "Clock: " (mapcar #'evaporview-item-path
+                                             (evaporview--signal-items
+                                              (evaporview-view-items evaporview--view)))
+                           nil t)
+          (intern (completing-read "Edge: " '("rise" "fall") nil t)))))
+
+(defun evaporview-wavedrom-copy (&optional clock edge)
   "Copy the marker-to-alt-marker range as WaveDrom JSON.
-With prefix arg CLOCKED, ask for a clock and edge to sample on."
-  (interactive "P")
-  (let* ((clock (and clocked (completing-read
-                              "Clock: " (mapcar #'evaporview-item-path
-                                                (evaporview--signal-items
-                                                 (evaporview-view-items evaporview--view)))
-                              nil t)))
-         (edge (and clocked (intern (completing-read "Edge: " '("rise" "fall") nil t))))
-         (json (evaporview-wavedrom-string clock edge)))
+With a prefix argument, ask for a CLOCK and EDGE to sample on."
+  (interactive (evaporview--wavedrom-args current-prefix-arg))
+  (let ((json (evaporview-wavedrom-string clock edge)))
     (kill-new json)
     (message "WaveDrom JSON copied (%d chars)" (length json))))
+
+(defun evaporview--wavedrom-pretty (clock edge)
+  (let ((json-encoding-pretty-print t)
+        (json-object-type 'alist) (json-array-type 'vector) (json-key-type 'symbol))
+    (json-encode (json-read-from-string (evaporview-wavedrom-string clock edge)))))
+
+(defun evaporview--wavedrom-file-stem ()
+  (let ((v evaporview--view))
+    (replace-regexp-in-string
+     " " "" (format "%s-%s-%s"
+                    (file-name-base (or (evaporview-view-file v) "wave"))
+                    (evaporview--fmt-time (min (evaporview-view-marker v)
+                                               (evaporview-view-alt-marker v)))
+                    (evaporview--fmt-time (max (evaporview-view-marker v)
+                                               (evaporview-view-alt-marker v)))))))
+
+(defun evaporview-wavedrom-org-block (&optional clock edge)
+  "The marker range as an Org `wavedrom' source block (see ob-ewavedrom)."
+  (unless (and (evaporview-view-marker evaporview--view)
+               (evaporview-view-alt-marker evaporview--view))
+    (user-error "Place both markers first"))
+  (format "#+begin_src wavedrom :file %s.svg\n%s\n#+end_src\n"
+          (evaporview--wavedrom-file-stem)
+          (evaporview--wavedrom-pretty clock edge)))
+
+(defun evaporview-wavedrom-copy-org-block (&optional clock edge)
+  "Copy the marker range as an Org `wavedrom' block, ready for a document.
+With a prefix argument, ask for a CLOCK and EDGE to sample on."
+  (interactive (evaporview--wavedrom-args current-prefix-arg))
+  (kill-new (evaporview-wavedrom-org-block clock edge))
+  (message "Org wavedrom block copied; paste it into an Org file"))
+
+;;;; ewavedrom
+
+(declare-function ewavedrom-render-string "ewavedrom")
+(declare-function ewavedrom-mode "ewavedrom")
+(declare-function ewavedrom-preview "ewavedrom")
+
+(defun evaporview--ewavedrom-available-p ()
+  (require 'ewavedrom nil t))
+
+(defun evaporview--require-ewavedrom ()
+  (unless (evaporview--ewavedrom-available-p)
+    (user-error "This needs ewavedrom on the load-path; `w' still copies the JSON")))
+
+(defun evaporview-wavedrom-svg (&optional clock edge)
+  "The marker range drawn by ewavedrom, as SVG text."
+  (evaporview--require-ewavedrom)
+  (ewavedrom-render-string (evaporview-wavedrom-string clock edge)))
+
+(defun evaporview-wavedrom-export-svg (file &optional clock edge)
+  "Write the marker range as a WaveDrom SVG FILE, drawn by ewavedrom.
+With a prefix argument, ask for a CLOCK and EDGE to sample on."
+  (interactive
+   (progn (evaporview--require-ewavedrom)
+          (append (list (read-file-name "Write SVG: " nil nil nil
+                                        (concat (evaporview--wavedrom-file-stem) ".svg")))
+                  (evaporview--wavedrom-args current-prefix-arg))))
+  (let ((svg (evaporview-wavedrom-svg clock edge))
+        (coding-system-for-write 'utf-8-unix))
+    (with-temp-file file (insert svg))
+    (message "Wrote %s" file)
+    file))
+
+(defun evaporview-wavedrom-preview (&optional clock edge)
+  "Show the marker range as an editable WaveJSON buffer with its diagram.
+The source buffer is in `ewavedrom-mode', so edges, arrows and labels
+can be added and re-rendered there.  With a prefix argument, ask for a
+CLOCK and EDGE to sample on.  Return the source buffer."
+  (interactive (progn (evaporview--require-ewavedrom)
+                      (evaporview--wavedrom-args current-prefix-arg)))
+  (evaporview--require-ewavedrom)
+  (let ((json (evaporview--wavedrom-pretty clock edge))
+        (buf (get-buffer-create (format "*evaporview wavedrom: %s*"
+                                        (evaporview--wavedrom-file-stem)))))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert json "\n"))
+      (ewavedrom-mode)
+      (goto-char (point-min))
+      (ewavedrom-preview))
+    (when (called-interactively-p 'any) (pop-to-buffer buf))
+    buf))
 
 ;;;; Netlist
 
@@ -1330,6 +1421,9 @@ With prefix arg CLOCKED, ask for a clock and edge to sample on."
     (define-key m (kbd "C-x C-s") #'evaporview-save-session)
     (define-key m (kbd "C-c C-l") #'evaporview-load-session)
     (define-key m (kbd "w") #'evaporview-wavedrom-copy)
+    (define-key m (kbd "W") #'evaporview-wavedrom-preview)
+    (define-key m (kbd "C-c C-w") #'evaporview-wavedrom-copy-org-block)
+    (define-key m (kbd "C-c C-e") #'evaporview-wavedrom-export-svg)
     (define-key m (kbd "B") #'evaporview-browse)
     (define-key m (kbd "t") #'evaporview-set-time-unit)
     (define-key m (kbd "g") #'evaporview-redraw)

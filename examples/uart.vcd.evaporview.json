@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "file": "uart.vcd",
+  "marker": 200000000,
+  "altMarker": 1160000000,
+  "viewStart": 0,
+  "viewEnd": 2944537815,
+  "timeUnit": "us",
+  "items": [
+    {
+      "type": "signal",
+      "path": "uart_tb.tx",
+      "name": null,
+      "format": "binary",
+      "color": 2,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "uart_tb.busy",
+      "name": null,
+      "format": "binary",
+      "color": 6,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "uart_tb.tx_data",
+      "name": "char",
+      "format": "ascii",
+      "color": 4,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "uart_tb.tx_data",
+      "name": null,
+      "format": "hex",
+      "color": 4,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "uart_tb.bit_idx",
+      "name": null,
+      "format": "unsigned",
+      "color": 5,
+      "style": "digital",
+      "slice": null
+    }
+  ]
+}

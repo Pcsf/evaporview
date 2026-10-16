@@ -205,7 +205,7 @@ function niceStep(minTicks) {
 
 function formatFrequency(seconds) {
   if (!(seconds > 0)) return '';
-  var f = 1 / seconds, names = ['Hz', 'kHz', 'MHz', 'GHz', 'THz'], i = 0;
+  var f = Number((1 / seconds).toPrecision(9)), names = ['Hz', 'kHz', 'MHz', 'GHz', 'THz'], i = 0;
   while (f >= 1000 && i < names.length - 1) { f /= 1000; i++; }
   while (f < 1 && i > 0) { f *= 1000; i--; }
   return formatG(f) + ' ' + names[i];

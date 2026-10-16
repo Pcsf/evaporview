@@ -5,11 +5,13 @@
 
 EMACS ?= emacs
 BUN   ?= bun
-BATCH  = $(EMACS) -Q --batch -L .
+# ewavedrom is optional; its integration tests run when it is checked out here.
+EWAVEDROM ?= ../ewavedrom
+BATCH  = $(EMACS) -Q --batch -L . $(if $(wildcard $(EWAVEDROM)/ewavedrom.el),-L $(EWAVEDROM))
 EL     = evaporview-vcd.el evaporview-format.el evaporview.el evaporview-html.el
 BUILD  = build
 
-.PHONY: all compile test test-el test-js audit bench demo verify clean
+.PHONY: all compile test test-el test-js audit bench demo verify examples showcase try clean
 
 all: compile test audit
 
@@ -75,3 +77,28 @@ verify: demo
 	  --virtual-time-budget=5000 --screenshot=$(BUILD)/driven.png "file://$(CURDIR)/$(BUILD)/driven.html" 2>/dev/null
 	@grep -q '"errs":\[\]' $(BUILD)/driven.json || { echo "verify: page errors"; cat $(BUILD)/driven.json; exit 1; }
 	@echo "verify: $(BUILD)/driven.json (state log), $(BUILD)/driven.png (view)"
+
+# Example dumps come from GHDL (dev only); their sessions from examples/sessions.el.
+EXAMPLES = spi uart nco
+examples:
+	cd examples && for t in $(EXAMPLES); do \
+	  ghdl -a --std=08 $${t}_tb.vhd && ghdl -e --std=08 $${t}_tb && \
+	  ghdl -r --std=08 $${t}_tb --vcd=$$t.vcd --stop-time=5us || exit 1; \
+	done; rm -f *.o *.cf $(addsuffix _tb,$(EXAMPLES))
+	$(BATCH) -l examples/sessions.el --eval '(evaporview-examples-write-sessions)'
+
+# Gallery images for examples/README.org: the Emacs view, the browser view and
+# the ewavedrom diagrams.  Needs ewavedrom and Chromium.
+showcase: compile
+	$(BATCH) -l examples/showcase.el
+	@for t in $(EXAMPLES); do for v in emacs browser; do \
+	  $(CHROMIUM) --headless --disable-gpu --no-sandbox --hide-scrollbars \
+	    --window-size=$$([ $$v = emacs ] && echo 1180,$$([ $$t = uart ] && echo 230 || echo 300) || echo 1400,560) \
+	    --virtual-time-budget=4000 --screenshot=examples/img/$$t-$$v.png \
+	    "file://$(CURDIR)/$(BUILD)/showcase/$$t-$$v.html" 2>/dev/null || exit 1; \
+	done; done
+	@echo "gallery in examples/img/"
+
+# Interactive tour: the SPI example with its netlist and a WaveDrom preview.
+try: compile
+	$(EMACS) -Q -L . $(if $(wildcard $(EWAVEDROM)/ewavedrom.el),-L $(EWAVEDROM)) -l examples/tour.el

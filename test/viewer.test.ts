@@ -69,6 +69,7 @@ describe("time formatting", () => {
     expect(V.niceStep(73)).toBe(100);
     expect(V.niceStep(1.5)).toBe(2);
     expect(V.formatFrequency(1e-8)).toBe("100 MHz");
+    expect(V.formatFrequency(1e9 * 1e-15)).toBe("1 MHz");
   });
 });
 

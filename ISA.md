@@ -1,15 +1,17 @@
 ---
 phase: complete
-progress: 18/18
+progress: 21/21
 task: "VaporView-style waveform viewer for Emacs that runs under corporate IT restrictions"
 slug: evaporview
-iteration: 1
+iteration: 2
 started: 2026-10-16T00:00:00Z
 updated: 2026-10-16T00:00:00Z
 principal_stated_goal: "please create a emacs pkg that reproduces the functionalities of vaporview for visual studio code (https://github.com/Lramseyer/vaporview). It should be able to run on corporative environment with lots of IT restrictions though. You can scafold the viewer using html (exported like done in org) if it makes more feaseble."
 principal_stated_goal_source: prompt
 principal_stated_goal_signal: 1
 principal_stated_goal_locked: 2026-10-16T00:00:00Z
+resumed_at: 2026-10-16T09:15:26.942Z
+resumed_from_phase: complete
 ---
 
 # evaporview -- VaporView-style waveform viewing from Emacs
@@ -86,6 +88,17 @@ network.
   serializer under bun.
 - [x] ISC-16: Opening a dump never modifies it. Probe: ERT hashes fixture before
   and after open + session save.
+- [x] ISC-17: With ewavedrom on the load-path, the marker range renders to SVG
+  (`W` preview buffer in `ewavedrom-mode`, `C-c C-e` file) and copies as an Org
+  `wavedrom` block; without it those commands raise a user-error and `w` /
+  `C-c C-w` still work. Probe: ERT `ewavedrom-render` (ran, not skipped),
+  `ewavedrom-missing`, `wavedrom-org-block`, `wavedrom-head`.
+- [x] ISC-18: Three example dumps (SPI, UART, NCO) from GHDL, each with a
+  curated session that auto-loads, and a gallery whose waveforms match the
+  testbench stimulus. Probe: images viewed; README search claims run in batch
+  (A5 at 660 ns, "!" at 2.12 us).
+- [x] ISC-19: Color N is the same in both viewers (light and dark). Probe:
+  Emacs defface hexes equal viewer.css `--c1..--c8`; gallery viewed.
 
 ## Anti-claims
 
@@ -99,11 +112,8 @@ network.
 - FST/GHW decoding in pure elisp (zlib via `zlib-decompress-region` exists, LZ4
   does not); a GHW reader is the most plausible v2 for GHDL users.
 - Parse speed limits for >100 MB dumps.
-- ewavedrom integration (principal, 2026-10-16: "a nice integration between
-  these two pkg later on"): render the copied WaveDrom selection directly in
-  Emacs. Seam: `ewavedrom-render-string` takes the WaveJSON string ISC-8
-  produces, so the hook is a soft `(require 'ewavedrom nil t)`, never a
-  Package-Requires entry.
+- Browser-viewer WaveDrom drawing: the page copies WaveJSON but cannot call
+  ewavedrom (Emacs-side); a JS port would be a second renderer to keep in sync.
 
 ## Decisions
 
@@ -127,6 +137,7 @@ network.
   this desktop (no rAF), and `VerifyViewport.ts` cannot attach on Linux (its
   CDP path needs the macOS bridge). Rendering and interaction were verified in
   headless Chromium instead, now `make verify`.
+- D-auto-2026-10-16T09:15:26.942Z: Auto-resumed from complete to learn at 2026-10-16T09:15:26.942Z -- iteration 2
 
 ## Test Strategy
 
@@ -147,3 +158,5 @@ viewer's pure functions; Interceptor for the live page.
 - ISC-15: ERT `session-from-browser` loads the fixture the JS serializer wrote;
   Emacs session drives the page's initial view (screenshot).
 - ISC-A2: SELF -- written from the feature list; VaporView source never fetched.
+- ISC-17..19 (iteration 2): `make all` ERT 22/22, bun 81/0, audit clean; JS
+  frequency bug red on committed viewer.js, green on fix.

@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "file": "spi.vcd",
+  "marker": 40000000,
+  "altMarker": 360000000,
+  "viewStart": 0,
+  "viewEnd": 751260504,
+  "timeUnit": "ns",
+  "items": [
+    {
+      "type": "signal",
+      "path": "spi_tb.cs_n",
+      "name": null,
+      "format": "binary",
+      "color": 5,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "spi_tb.sclk",
+      "name": null,
+      "format": "binary",
+      "color": 2,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "spi_tb.mosi",
+      "name": null,
+      "format": "binary",
+      "color": 1,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "spi_tb.miso",
+      "name": null,
+      "format": "binary",
+      "color": 3,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "spi_tb.busy",
+      "name": null,
+      "format": "binary",
+      "color": 6,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "group",
+      "name": "byte",
+      "expanded": true,
+      "items": [
+        {
+          "type": "signal",
+          "path": "spi_tb.tx_byte",
+          "name": null,
+          "format": "hex",
+          "color": 1,
+          "style": "digital",
+          "slice": null
+        },
+        {
+          "type": "signal",
+          "path": "spi_tb.rx_byte",
+          "name": null,
+          "format": "hex",
+          "color": 3,
+          "style": "digital",
+          "slice": null
+        },
+        {
+          "type": "signal",
+          "path": "spi_tb.bit_cnt",
+          "name": null,
+          "format": "unsigned",
+          "color": 4,
+          "style": "digital",
+          "slice": null
+        }
+      ]
+    }
+  ]
+}

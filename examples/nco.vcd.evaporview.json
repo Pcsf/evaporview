@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "file": "nco.vcd",
+  "marker": 1000000000,
+  "altMarker": 2000000000,
+  "viewStart": 0,
+  "viewEnd": 4038655462,
+  "timeUnit": "us",
+  "items": [
+    {
+      "type": "signal",
+      "path": "nco_tb.phase",
+      "name": null,
+      "format": "unsigned",
+      "color": 7,
+      "style": "analog",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "nco_tb.amp",
+      "name": null,
+      "format": "real",
+      "color": 5,
+      "style": "analog",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "nco_tb.sine",
+      "name": null,
+      "format": "real",
+      "color": 1,
+      "style": "analog",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "nco_tb.sample",
+      "name": null,
+      "format": "signed",
+      "color": 3,
+      "style": "analog",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "nco_tb.sample",
+      "name": null,
+      "format": "signed",
+      "color": 3,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "nco_tb.sample_f32",
+      "name": null,
+      "format": "float",
+      "color": 2,
+      "style": "digital",
+      "slice": null
+    }
+  ]
+}

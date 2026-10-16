@@ -23,17 +23,20 @@ Inspired by VaporView; not affiliated with it, and no code is shared.
 | What                    | Version          | Notes                                                  |
 |-------------------------+------------------+--------------------------------------------------------|
 | GNU Emacs               | 27.1 or later    | Only built-in libraries: =cl-lib=, =subr-x=, =json=, =browse-url=. |
-| A web browser           | any current one  | Only for =B=; the page uses canvas and ES2017.          |
+| A web browser           | any current one  | Only for =B=; the page uses canvas, ES2017 and BigInt.  |
+| [[https://github.com/Pcsf/ewavedrom][ewavedrom]] (optional)    | 0.1.0            | Only for =W= and =C-c C-e=, which draw WaveDrom diagrams. Pure Lisp, same Emacs floor. |
 
 Nothing else at runtime: no external program, no compiled module, no network
 access and no listening port.  =make audit= enforces this on every build.
 
 Development only (never needed on the target machine):
 
-| What    | Used for                                                                |
-|---------+-------------------------------------------------------------------------|
-| bun     | =make test-js=, the browser viewer's unit tests                         |
-| GHDL    | regenerating =test/data/counter.vcd= from =test/data/counter_tb.vhd= (proven on GHDL 6.0.0) |
+| What     | Used for                                                               |
+|----------+------------------------------------------------------------------------|
+| bun      | =make test-js=, the browser viewer's unit tests                        |
+| GHDL     | =make examples= and =test/data/counter.vcd= (proven on GHDL 6.0.0)     |
+| Chromium | =make verify= and =make showcase=, headless screenshots of the page    |
+| ewavedrom | the integration tests and =make showcase=; the Makefile looks in =../ewavedrom= (=EWAVEDROM= overrides) |
 
 Verified on GNU Emacs 31.1 (Arch Linux).  The 27.1 floor is enforced by a scan
 for newer functions in =make audit=; no older Emacs was run.
@@ -48,6 +51,13 @@ Copy the directory anywhere, then:
 #+end_src
 
 Keep =assets/= next to the =.el= files; the browser page is built from it.
+For the WaveDrom diagrams, put [[https://github.com/Pcsf/ewavedrom][ewavedrom]] on the =load-path= as well.
+
+* Examples
+
+[[file:examples/README.org][examples/README.org]] walks through three GHDL testbenches (SPI, UART, a sine
+NCO) with screenshots of both viewers and the WaveDrom diagrams ewavedrom
+draws from them.  =make try= opens the SPI example in a fresh Emacs.
 
 * Use
 
@@ -108,6 +118,9 @@ marker columns are highlighted on every row.
 | =C-x C-s=                        | evaporview-save-session          | save the session (=C-u= asks where)                    |
 | =C-c C-l=                        | evaporview-load-session          | load a session                                         |
 | =w=                              | evaporview-wavedrom-copy         | copy marker..alt-marker as WaveDrom JSON (=C-u= samples on a clock edge) |
+| =W=                              | evaporview-wavedrom-preview      | the same as an editable WaveJSON buffer plus its diagram (needs ewavedrom) |
+| =C-c C-w=                        | evaporview-wavedrom-copy-org-block | copy it as an Org =wavedrom= source block              |
+| =C-c C-e=                        | evaporview-wavedrom-export-svg   | write it as an SVG file (needs ewavedrom)              |
 | =B=                              | evaporview-browse                | open the view in the browser (=C-u= asks where to write) |
 | =t=                              | evaporview-set-time-unit         | display unit                                           |
 | =g=                              | evaporview-redraw                | redraw                                                 |
@@ -186,12 +199,26 @@ read by the Emacs test suite.
 
 * WaveDrom
 
-=w= copies the span between the two markers as WaveJSON, at most 32 events.
-Without a clock every value change of a shown signal is an event.  With
-=C-u w=, each rising or falling edge of the chosen clock is an event, and
-every signal is sampled at that edge.  The function behind it,
-=evaporview-wavedrom-string=, returns strict JSON, ready to feed a WaveDrom
-renderer such as =ewavedrom= (=ewavedrom-render-string=).
+The span between the two markers can leave the viewer as a WaveDrom timing
+diagram, at most 32 events wide.  Without a clock every value change of a
+shown signal is an event.  With a prefix argument (=C-u=), each rising or
+falling edge of a chosen clock is an event, every signal is sampled at that
+edge, and the cycles are numbered.
+
+| Key       | Gives                                                              |
+|-----------+--------------------------------------------------------------------|
+| =w=       | the WaveJSON text in the kill ring                                 |
+| =W=       | a WaveJSON buffer in =ewavedrom-mode= with the diagram beside it    |
+| =C-c C-w= | an Org =#+begin_src wavedrom :file <dump>-<from>-<to>.svg= block   |
+| =C-c C-e= | an SVG file                                                        |
+
+=W= and =C-c C-e= draw with [[https://github.com/Pcsf/ewavedrom][ewavedrom]], the pure-Lisp WaveDrom renderer, so
+the diagram needs no Node or browser either.  ewavedrom is optional: put it on
+the load-path and the two commands find it.  Without it, =w= and =C-c C-w=
+still work, and the other two say what is missing.  The =W= buffer holds
+ordinary WaveJSON, so edges, arrows and renamed lanes can be added there and
+re-rendered with ewavedrom's own preview.  The Org block is evaluated by
+=ob-ewavedrom= (=C-c C-c=) into the SVG file it names.
 
 * Formats
 
@@ -229,6 +256,9 @@ make test-el    # Emacs tests only
 make test-js    # browser viewer tests only (needs bun)
 make audit      # no processes, network, or post-27.1 functions at runtime
 make bench      # parse cost on a generated dump
+make examples   # re-simulate the example testbenches (needs GHDL)
+make showcase   # rebuild the example gallery images
+make try        # open the SPI example in a fresh Emacs
 make demo       # build/counter.html from the GHDL fixture
 make verify     # drive that page in headless Chromium; state log + screenshot
 #+end_src

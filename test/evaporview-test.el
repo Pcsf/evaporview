@@ -208,7 +208,11 @@ b11111111 b
   (should (equal (evaporview-format-time 3 '(10 . "ps") "ns") "0.03 ns"))
   (should (equal (evaporview-format-time 2 '(1 . "us") "ns") "2000 ns"))
   (should (equal (evaporview-auto-time-unit 159000000 '(1 . "fs")) "ns"))
-  (should (equal (evaporview-auto-time-unit 40 '(10 . "ps")) "ps")))
+  (should (equal (evaporview-auto-time-unit 40 '(10 . "ps")) "ps"))
+  ;; 1 / 1e-6 is 999999.99... in floating point; it is still 1 MHz.
+  (should (equal (evaporview-format-frequency 1000000000 '(1 . "fs")) "1 MHz"))
+  (should (equal (evaporview-format-frequency 10000000 '(1 . "fs")) "100 MHz"))
+  (should (equal (evaporview-format-frequency 3 '(1 . "s")) "0.333333 Hz")))
 
 ;;;; Navigation
 
@@ -437,6 +441,66 @@ b11111111 b
     (let* ((json-object-type 'alist) (json-array-type 'list) (json-key-type 'symbol)
            (doc (json-read-from-string (evaporview-wavedrom-string))))
       (should (= (length (alist-get 'wave (car (alist-get 'signal doc)))) 32)))))
+
+(ert-deftest evaporview-test-wavedrom-head ()
+  (evaporview-test--with-view
+    (evaporview-add-signal "counter_tb.clk")
+    (evaporview-set-marker 15000000)
+    (evaporview-set-alt-marker 35000000)
+    (let* ((json-object-type 'alist) (json-array-type 'list) (json-key-type 'symbol)
+           (plain (json-read-from-string (evaporview-wavedrom-string)))
+           (clocked (json-read-from-string
+                     (evaporview-wavedrom-string "counter_tb.clk" 'rise))))
+      (should (equal (alist-get 'text (alist-get 'head plain))
+                     "counter.vcd  15 ns - 35 ns"))
+      (should-not (assq 'tick (alist-get 'head plain)))
+      ;; Clocked diagrams number their cycles.
+      (should (equal (alist-get 'tick (alist-get 'head clocked)) 0)))))
+
+(ert-deftest evaporview-test-wavedrom-org-block ()
+  (evaporview-test--with-view
+    (evaporview-add-signal "counter_tb.cnt")
+    (evaporview-set-marker 15000000)
+    (evaporview-set-alt-marker 35000000)
+    (let ((block (evaporview-wavedrom-org-block)))
+      (should (string-match-p "\\`#\\+begin_src wavedrom :file counter-15ns-35ns\\.svg\n" block))
+      (should (string-match-p "\n#\\+end_src\n\\'" block))
+      (should (string-match-p "\"cnt\\[7:0\\]\"" block)))))
+
+(ert-deftest evaporview-test-ewavedrom-missing ()
+  (evaporview-test--with-view
+    (evaporview-add-signal "counter_tb.clk")
+    (evaporview-set-marker 0)
+    (evaporview-set-alt-marker 20000000)
+    (cl-letf (((symbol-function 'evaporview--ewavedrom-available-p) #'ignore))
+      (should-error (evaporview-wavedrom-svg) :type 'user-error))))
+
+(ert-deftest evaporview-test-ewavedrom-render ()
+  (skip-unless (locate-library "ewavedrom"))
+  (evaporview-test--with-view
+    (evaporview-add-signal "counter_tb.clk")
+    (evaporview-add-signal "counter_tb.cnt")
+    (evaporview-set-marker 15000000)
+    (evaporview-set-alt-marker 35000000)
+    (let ((svg (evaporview-wavedrom-svg "counter_tb.clk" 'rise)))
+      (should (string-prefix-p "<svg" svg))
+      (should (string-match-p ">cnt\\[7:0\\]<" svg))
+      (should (string-match-p ">02<" svg)))
+    (let ((file (make-temp-file "evw" nil ".svg")))
+      (unwind-protect
+          (progn (evaporview-wavedrom-export-svg file)
+                 (should (string-prefix-p "<svg" (with-temp-buffer
+                                                   (insert-file-contents file)
+                                                   (buffer-string)))))
+        (delete-file file)))
+    (let ((src (evaporview-wavedrom-preview)))
+      (unwind-protect
+          (with-current-buffer src
+            (should (derived-mode-p 'ewavedrom-mode))
+            (should (string-match-p "\"signal\"" (buffer-string)))
+            (should (with-current-buffer (ewavedrom--preview-buffer-name src)
+                      (string-prefix-p "<svg" ewavedrom--preview-svg))))
+        (kill-buffer src)))))
 
 ;;;; HTML export
 

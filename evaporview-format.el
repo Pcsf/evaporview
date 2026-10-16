@@ -220,7 +220,7 @@ Formats that cannot show non-2-state bits fall back to binary."
   (if (or (null ticks) (zerop ticks)) ""
     (let* ((s (* (abs ticks) (car timescale)
                  (expt 10.0 (- (evaporview--unit-power (cdr timescale)) 15))))
-           (f (/ 1.0 s))
+           (f (string-to-number (format "%.9g" (/ 1.0 s))))
            (units '((1e12 . "THz") (1e9 . "GHz") (1e6 . "MHz") (1e3 . "kHz")))
            (u (cl-find-if (lambda (u) (>= f (car u))) units)))
       (if u (format "%g %s" (/ f (car u)) (cdr u)) (format "%g Hz" f)))))
