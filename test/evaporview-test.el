@@ -297,7 +297,7 @@ b11111111 b
 
 (ert-deftest evaporview-test-render-rows ()
   (let ((w (evaporview-vcd-parse-string evaporview-test--render-vcd)))
-    (should (equal (evaporview-test--row w "t.clk" 'binary) "▁▁╱▔╲▁╱▔╲▁"))
+    (should (equal (evaporview-test--row w "t.clk" 'binary) "▁▁│▔│▁│▔│▁"))
     (should (equal (evaporview-test--row w "t.d" 'hex) "00══╳2A═╳…"))
     (should (equal (evaporview-test--row w "t.z" 'binary) "────│▒▒▒│▔"))
     ;; Several changes inside one column collapse into one mark.
@@ -305,6 +305,17 @@ b11111111 b
                     (evaporview-render-row (evaporview-test--sig w "t.clk")
                                            'binary 'digital 0 50 2))
                    "┃┃"))
+    ;; A clock faster than the columns is one uniform band, not a beat of
+    ;; one-edge and two-edge columns: 5 ns half period at 7 ns per column.
+    (let* ((vcd (concat "$timescale 1ns $end\n$scope module t $end\n"
+                        "$var wire 1 a clk $end\n$upscope $end\n$enddefinitions $end\n"
+                        (mapconcat (lambda (i) (format "#%d\n%da\n" (* 5 i) (% i 2)))
+                                   (number-sequence 0 40) "")))
+           (row (substring-no-properties
+                 (evaporview-render-row
+                  (evaporview-test--sig (evaporview-vcd-parse-string vcd) "t.clk")
+                  'binary 'digital 0 7 20))))
+      (should (equal (substring row 1) (make-string 19 ?┃))))
     ;; Analog style maps the value range onto eight block heights.
     (should (equal (substring-no-properties
                     (evaporview-render-row (evaporview-test--sig w "t.d")
@@ -334,6 +345,41 @@ b11111111 b
       (kill-buffer))))
 
 (defun evaporview-test--faces (f) (if (listp f) f (list f)))
+
+(ert-deftest evaporview-test-row-spacing ()
+  (evaporview-test--with-view
+    (let ((evaporview-row-spacing 1))
+      (evaporview-add-signal "counter_tb.clk")
+      (evaporview-add-signal "counter_tb.cnt")
+      (evaporview-set-marker 15000000)
+      (evaporview-redraw)
+      (evaporview-goto-item 0)
+      (should (looking-at " *clk +│"))
+      ;; A blank line separates the rows and keeps the column frame.
+      (forward-line 1)
+      (should (looking-at " +│ +│ +$"))
+      (should (= (evaporview--row-index) 0))
+      (let ((col (evaporview--time-column 15000000)))
+        (should (memq 'evaporview-marker-face
+                      (evaporview-test--faces
+                       (get-text-property (+ (line-beginning-position) col) 'face)))))
+      (forward-line 1)
+      (should (looking-at " *cnt\\[7:0\\] +│"))
+      (should (= (evaporview--row-index) 1))
+      (evaporview-goto-item 1)
+      (should (looking-at " *cnt"))
+      ;; Line motion steps whole rows.
+      (evaporview-goto-item 0)
+      (call-interactively (key-binding (kbd "C-n")))
+      (should (= (evaporview--row-index) 1))
+      (should (looking-at " *cnt"))
+      (call-interactively (key-binding (kbd "C-p")))
+      (should (looking-at " *clk")))
+    (let ((evaporview-row-spacing 0))
+      (evaporview-redraw)
+      (evaporview-goto-item 0)
+      (forward-line 1)
+      (should (looking-at " *cnt")))))
 
 ;;;; Editing, undo, sessions
 

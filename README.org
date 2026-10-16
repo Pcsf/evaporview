@@ -72,6 +72,10 @@ on it.  The header shows the marker =M=, the alt marker =A=, their distance
 =Δ= with its frequency, and the visible time range.  The marker and alt
 marker columns are highlighted on every row.
 
+Signals are separated by =evaporview-row-spacing= blank lines (default 1, 0
+packs them).  They are real lines, so the gap shows over a terminal too, and
+=C-n= / =C-p= step from signal to signal across them.
+
 ** Netlist
 
 | Key            | Action                                           |
@@ -146,8 +150,8 @@ In a terminal, enable =xterm-mouse-mode= for the mouse to reach Emacs.
 | Glyph       | Meaning                                                     |
 |-------------+-------------------------------------------------------------|
 | =▁ ▔=       | 0 / 1 (also weak =l= / =h=)                                 |
-| =╱ ╲ │=     | rising, falling, other change inside the column             |
-| =┃=         | several changes in one column; zoom in to resolve them      |
+| =│=         | one change inside the column (edge, X or Z transition)      |
+| =┃=         | changes too close for the columns to show levels; zoom in   |
 | =─=         | high impedance (=z=)                                        |
 | =▒=         | unknown (=x=, =u=, =w=, =-=)                                |
 | =╳ 2A═══=   | bus change and value; =…= when the value does not fit       |

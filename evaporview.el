@@ -62,6 +62,11 @@
   "Widest the signal name column may grow."
   :type 'integer)
 
+(defcustom evaporview-row-spacing 1
+  "Blank lines between signal rows.
+Real lines rather than `line-spacing', so the gap shows on a terminal too."
+  :type 'integer)
+
 (defcustom evaporview-netlist-width 34
   "Width of the netlist side window."
   :type 'integer)
@@ -302,12 +307,13 @@ FMT formats bus labels, STYLE is `digital' or `analog', COLOR is 1..8."
            ((or (= n 0) (null before))
             (aset chars c (aref (evaporview--bit-char (aref after 0)) 0))
             (aset faces c (evaporview--bit-face (aref after 0) face)))
-           ((> n 1) (aset chars c ?┃) (aset faces c face))
-           (t (let ((from (aref before 0)) (to (aref after 0)))
-                (aset chars c (cond ((and (memq from '(?0 ?l)) (memq to '(?1 ?h))) ?╱)
-                                  ((and (memq from '(?1 ?h)) (memq to '(?0 ?l))) ?╲)
-                                  (t ?│)))
-                (aset faces c face)))))))
+           ;; Changes in a neighbouring column too: no level is visible between
+           ;; them, so mark the run uniformly instead of counting edges.
+           ((or (> n 1)
+                (and (> c 0) (> (car (aref cols (1- c))) 0))
+                (and (< (1+ c) ncols) (> (car (aref cols (1+ c))) 0)))
+            (aset chars c ?┃) (aset faces c face))
+           (t (aset chars c ?│) (aset faces c face))))))
      (t
       (let ((c 0))
         (while (< c ncols)
@@ -453,7 +459,11 @@ FMT formats bus labels, STYLE is `digital' or `analog', COLOR is 1..8."
          (namew (evaporview--name-width))
          (ncols (evaporview--wave-cols))
          (ruler (evaporview--ruler ncols))
-         (lead (make-string (+ namew 3 evaporview-value-width 3) ?\s)))
+         (lead (make-string (+ namew 3 evaporview-value-width 3) ?\s))
+         (spacer (concat (make-string namew ?\s) " │ "
+                         (make-string evaporview-value-width ?\s) " │ "
+                         (make-string ncols ?\s) "\n"))
+         (first t))
     (setq evaporview--rows rows evaporview--last-cols ncols)
     (erase-buffer)
     (insert (propertize (evaporview--status) 'face 'mode-line-inactive) "\n")
@@ -474,6 +484,9 @@ FMT formats bus labels, STYLE is `digital' or `analog', COLOR is 1..8."
                          (evaporview-format-value sig (evaporview-sig-value-at sig m)
                                                   (evaporview-item-format it))
                        "")))
+         (unless first
+           (dotimes (_ (max 0 evaporview-row-spacing)) (insert spacer)))
+         (setq first nil)
          (insert (propertize (evaporview--fit label namew)
                              'face (if group 'evaporview-group-face
                                      (evaporview--color-face (evaporview-item-color it))))
@@ -495,10 +508,16 @@ FMT formats bus labels, STYLE is `digital' or `analog', COLOR is 1..8."
 
 ;;;; Point, selection
 
+(defun evaporview--row-stride ()
+  (1+ (max 0 evaporview-row-spacing)))
+
 (defun evaporview--row-index ()
-  "Index into the rows of the line at point, or nil on the header."
-  (let ((i (- (line-number-at-pos) evaporview--header-lines 1)))
-    (and evaporview--rows (>= i 0) (< i (length evaporview--rows)) i)))
+  "Index into the rows of the line at point, or nil on the header.
+A spacer line belongs to the row above it."
+  (let ((l (- (line-number-at-pos) evaporview--header-lines 1)))
+    (and evaporview--rows (>= l 0)
+         (let ((i (/ l (evaporview--row-stride))))
+           (and (< i (length evaporview--rows)) i)))))
 
 (defun evaporview--current ()
   (let ((i (evaporview--row-index)))
@@ -514,7 +533,21 @@ FMT formats bus labels, STYLE is `digital' or `analog', COLOR is 1..8."
 (defun evaporview-goto-item (n)
   "Move point to row N (0-based) of the signal list."
   (goto-char (point-min))
-  (forward-line (+ evaporview--header-lines n)))
+  (forward-line (+ evaporview--header-lines (* n (evaporview--row-stride)))))
+
+(defun evaporview-next-row (&optional n)
+  "Move point N rows down, skipping the spacer lines."
+  (interactive "p")
+  (let ((col (current-column)) (i (evaporview--row-index)))
+    (if (and i evaporview--rows)
+        (evaporview-goto-item (max 0 (min (+ i n) (1- (length evaporview--rows)))))
+      (forward-line n))
+    (move-to-column col)))
+
+(defun evaporview-previous-row (&optional n)
+  "Move point N rows up, skipping the spacer lines."
+  (interactive "p")
+  (evaporview-next-row (- n)))
 
 (defun evaporview--goto (item)
   (let ((i (cl-position item evaporview--rows :key #'car)))
@@ -1394,6 +1427,8 @@ CLOCK and EDGE to sample on.  Return the source buffer."
     (define-key m (kbd "S") #'evaporview-split-signal)
     (define-key m (kbd "G") #'evaporview-group-items)
     (define-key m (kbd "TAB") #'evaporview-toggle-group)
+    (define-key m [remap next-line] #'evaporview-next-row)
+    (define-key m [remap previous-line] #'evaporview-previous-row)
     (define-key m (kbd "<right>") #'evaporview-next-edge)
     (define-key m (kbd "<left>") #'evaporview-prev-edge)
     (define-key m (kbd "n") #'evaporview-next-edge)

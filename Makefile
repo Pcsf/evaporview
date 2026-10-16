@@ -89,14 +89,17 @@ examples:
 	$(BATCH) -l examples/sessions.el --eval '(evaporview-examples-write-sessions)'
 
 # Gallery images for examples/README.org: the Emacs view, the browser view and
-# the ewavedrom diagrams.  Needs ewavedrom and Chromium.
+# the ewavedrom diagrams.  Needs ewavedrom and Chromium.  The Emacs page is
+# 18 px per buffer line (15px/1.2 in showcase.el) plus 24 px of padding.
 showcase: compile
 	$(BATCH) -l examples/showcase.el
 	@for t in $(EXAMPLES); do for v in emacs browser; do \
+	  page=$(BUILD)/showcase/$$t-$$v.html; \
+	  size=$$([ $$v = emacs ] && echo 1180,$$(( $$(sed 's/<[^>]*>//g' $$page | wc -l) * 18 + 24 )) || echo 1400,560); \
 	  $(CHROMIUM) --headless --disable-gpu --no-sandbox --hide-scrollbars \
-	    --window-size=$$([ $$v = emacs ] && echo 1180,$$([ $$t = uart ] && echo 230 || echo 300) || echo 1400,560) \
+	    --window-size=$$size \
 	    --virtual-time-budget=4000 --screenshot=examples/img/$$t-$$v.png \
-	    "file://$(CURDIR)/$(BUILD)/showcase/$$t-$$v.html" 2>/dev/null || exit 1; \
+	    "file://$(CURDIR)/$$page" 2>/dev/null || exit 1; \
 	done; done
 	@echo "gallery in examples/img/"
 
