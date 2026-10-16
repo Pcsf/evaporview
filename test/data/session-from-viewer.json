@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "file": "counter.vcd",
+  "marker": 15000000,
+  "altMarker": 5000000,
+  "viewStart": 0,
+  "viewEnd": 159000000,
+  "timeUnit": "ns",
+  "items": [
+    {
+      "type": "signal",
+      "path": "counter_tb.clk",
+      "name": null,
+      "format": "binary",
+      "color": 1,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "counter_tb.cnt",
+      "name": null,
+      "format": "hex",
+      "color": 2,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "group",
+      "name": "buses",
+      "expanded": true,
+      "items": [
+        {
+          "type": "signal",
+          "path": "counter_tb.bus4",
+          "name": null,
+          "format": "binary",
+          "color": 3,
+          "style": "digital",
+          "slice": null
+        },
+        {
+          "type": "signal",
+          "path": "counter_tb.cnt",
+          "name": "cnt low",
+          "format": "unsigned",
+          "color": 4,
+          "style": "digital",
+          "slice": [
+            3,
+            0
+          ]
+        }
+      ]
+    }
+  ]
+}

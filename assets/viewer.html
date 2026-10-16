@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>/*EVW:TITLE*/</title>
+<style>/*EVW:CSS*/</style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar">
+    <button data-act="netlist" title="Show or hide the netlist">Netlist</button>
+    <span class="sepv"></span>
+    <button data-act="zoomin" title="Zoom in (+)">&#65291;</button>
+    <button data-act="zoomout" title="Zoom out (-)">&minus;</button>
+    <button data-act="zoomfit" title="Zoom to fit (Ctrl+0)">Fit</button>
+    <span class="sepv"></span>
+    <button data-act="prevrise" title="Previous rising edge of the selected 1-bit signal">&#8593;&#9666;</button>
+    <button data-act="nextrise" title="Next rising edge of the selected 1-bit signal">&#8593;&#9656;</button>
+    <button data-act="prevfall" title="Previous falling edge of the selected 1-bit signal">&#8595;&#9666;</button>
+    <button data-act="nextfall" title="Next falling edge of the selected 1-bit signal">&#8595;&#9656;</button>
+    <span class="sepv"></span>
+    <button data-act="searchprev" title="Find previous value (Shift+Enter)">&#9666;</button>
+    <input id="search" type="text" placeholder="Find value of selected" title="Value in the signal's current format; case and leading zeros ignored">
+    <button data-act="searchnext" title="Find next value (Enter)">&#9656;</button>
+    <span class="sepv"></span>
+    <button data-act="save" title="Save session (Ctrl+S)">Save</button>
+    <button data-act="load" title="Load a session file, or drop one on the page">Load</button>
+    <button data-act="wavedrom" title="Copy the marker range as WaveDrom JSON">WaveDrom</button>
+    <button data-act="help" title="Keyboard and mouse help (?)">?</button>
+    <span id="title"></span>
+    <input id="sessionfile" type="file" accept=".json,application/json" hidden>
+  </div>
+  <div id="main">
+    <div id="netlist">
+      <div class="panehead"><input id="filter" type="text" placeholder="Filter signals (Ctrl+F)"></div>
+      <div id="tree"></div>
+    </div>
+    <div id="names">
+      <div class="panehead"><span class="nm">Signal</span><span class="val">Value</span></div>
+      <div id="nameclip"><div id="namerows"></div></div>
+    </div>
+    <div id="wavewrap"><canvas id="wave"></canvas></div>
+  </div>
+  <div id="status">
+    <span id="st-marker"></span>
+    <span id="st-alt"></span>
+    <span id="st-delta"></span>
+    <span id="st-cursor"></span>
+    <span id="st-msg"></span>
+    <label class="unitsel">Unit <select id="unit"></select></label>
+  </div>
+</div>
+<script id="evw-data" type="application/json">/*EVW:DATA*/</script>
+<script>/*EVW:JS*/</script>
+</body>
+</html>

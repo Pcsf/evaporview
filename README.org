@@ -1,0 +1,241 @@
+#+TITLE: evaporview
+#+SUBTITLE: VaporView-style waveform viewing from Emacs, for locked-down machines
+
+evaporview opens VCD simulation dumps the way [[https://github.com/Lramseyer/vaporview][VaporView]] does in VS Code: a
+netlist to pick signals from, waveforms with a marker and an alt marker, edge
+stepping, value formats, value search, groups, saved sessions and WaveDrom
+export.  It is written in Emacs Lisp only, so it runs where VS Code
+extensions, GTKWave, Node or Python packages are not allowed.
+
+It has two front ends over one parser:
+
+- *The waveform buffer*, inside Emacs.  Signals are drawn as text, so it
+  works in a graphical frame and in =emacs -nw= over SSH.
+- *The browser page* (=B=).  The same view is written as one self-contained
+  =.html= file with the data, stylesheet and script inlined.  It needs no
+  network, server or plug-in.  It opens from =file://= in any current
+  browser and can be mailed or copied to another machine.
+
+Inspired by VaporView; not affiliated with it, and no code is shared.
+
+* Dependencies
+
+| What                    | Version          | Notes                                                  |
+|-------------------------+------------------+--------------------------------------------------------|
+| GNU Emacs               | 27.1 or later    | Only built-in libraries: =cl-lib=, =subr-x=, =json=, =browse-url=. |
+| A web browser           | any current one  | Only for =B=; the page uses canvas and ES2017.          |
+
+Nothing else at runtime: no external program, no compiled module, no network
+access and no listening port.  =make audit= enforces this on every build.
+
+Development only (never needed on the target machine):
+
+| What    | Used for                                                                |
+|---------+-------------------------------------------------------------------------|
+| bun     | =make test-js=, the browser viewer's unit tests                         |
+| GHDL    | regenerating =test/data/counter.vcd= from =test/data/counter_tb.vhd= (proven on GHDL 6.0.0) |
+
+Verified on GNU Emacs 31.1 (Arch Linux).  The 27.1 floor is enforced by a scan
+for newer functions in =make audit=; no older Emacs was run.
+
+* Install
+
+Copy the directory anywhere, then:
+
+#+begin_src emacs-lisp
+(add-to-list 'load-path "/path/to/evaporview")
+(autoload 'evaporview-open "evaporview" nil t)
+#+end_src
+
+Keep =assets/= next to the =.el= files; the browser page is built from it.
+
+* Use
+
+=M-x evaporview-open= asks for a dump.  It defaults to the file at point in
+Dired or the file of the current buffer.  The waveform buffer opens with the
+netlist on the left.  Move to a variable and press =RET= (or click it) to add
+it.
+
+The cursor line is the selected signal.  Edge stepping, search and edits act
+on it.  The header shows the marker =M=, the alt marker =A=, their distance
+=Δ= with its frequency, and the visible time range.  The marker and alt
+marker columns are highlighted on every row.
+
+** Netlist
+
+| Key            | Action                                           |
+|----------------+--------------------------------------------------|
+| =RET=, click   | on a scope: expand/collapse; on a variable: add it |
+| =A=            | add every variable of the scope on this line     |
+| =/=, =C-s=     | filter variables by path (empty clears)          |
+| =TAB=, =S-TAB= | next/previous entry                              |
+| =g=            | redraw                                           |
+| =q=            | close                                            |
+
+** Waveform buffer
+
+| Key                              | Command                          | Action                                                 |
+|----------------------------------+----------------------------------+--------------------------------------------------------|
+| =a=                              | evaporview-add-signal            | add a signal by path, with completion                  |
+| =l=                              | evaporview-netlist               | show/hide the netlist                                  |
+| =d=, =DEL=, =<delete>=           | evaporview-remove-item           | remove the signal or group                             |
+| =M-<up>= =M-<down>=, =M-p= =M-n= | evaporview-move-item-up / evaporview-move-item-down | reorder                                                |
+| =1= ... =8=                      | evaporview-set-color             | color                                                  |
+| =<f2>=, =r=                      | evaporview-rename                | rename (empty restores the default)                   |
+| =f=                              | evaporview-set-format            | binary, hex, octal, unsigned, signed, ascii, float, real |
+| =A=                              | evaporview-toggle-analog         | digital / analog drawing (multi-bit and real)          |
+| =:=                              | evaporview-slice-signal          | new signal from a bit range =msb:lsb=                  |
+| =S=                              | evaporview-split-signal          | split into bits, nibbles, bytes... (asks bits per signal) |
+| =G=                              | evaporview-group-items           | group the region's rows (or this row)                  |
+| =TAB=                            | evaporview-toggle-group          | expand/collapse a group                                |
+| =<right>=, =n=                   | evaporview-next-edge             | marker to the next change of the selected signal       |
+| =<left>=, =N=                    | evaporview-prev-edge             | marker to the previous change                          |
+| =M-<right>=                      | evaporview-alt-next-edge         | alt marker to the next change                          |
+| =M-<left>=                       | evaporview-alt-prev-edge         | alt marker to the previous change                      |
+| =]= / =[=                        | evaporview-next-rising-edge / evaporview-prev-rising-edge   | rising edges of a 1-bit signal |
+| =}= / ={=                        | evaporview-next-falling-edge / evaporview-prev-falling-edge | falling edges                  |
+| =+=, ===                         | evaporview-zoom-in               | zoom in around the marker                              |
+| =-=                              | evaporview-zoom-out              | zoom out                                               |
+| =0=                              | evaporview-zoom-fit              | show the whole dump                                    |
+| =z=                              | evaporview-zoom-markers          | zoom to the marker to alt-marker span                     |
+| =,= / =.=                        | evaporview-scroll-left / evaporview-scroll-right | scroll half a screen                   |
+| =<home>= / =<end>=               | evaporview-goto-start / evaporview-goto-end | start / end of the dump                     |
+| =m= / =M=                        | evaporview-set-marker / evaporview-set-alt-marker | place a marker at a typed time (=15ns=, =2.5 us=, or a number in the display unit) |
+| =x=                              | evaporview-swap-markers          | exchange marker and alt marker                         |
+| =/= / =\=                        | evaporview-search-forward / evaporview-search-backward | find a value of the selected signal, as displayed (case and leading zeros ignored) |
+| =u=, =C-/=, =C-_=                | evaporview-undo                  | undo a signal-list edit                                |
+| =U=, =C-?=                       | evaporview-redo                  | redo                                                   |
+| =C-x C-s=                        | evaporview-save-session          | save the session (=C-u= asks where)                    |
+| =C-c C-l=                        | evaporview-load-session          | load a session                                         |
+| =w=                              | evaporview-wavedrom-copy         | copy marker..alt-marker as WaveDrom JSON (=C-u= samples on a clock edge) |
+| =B=                              | evaporview-browse                | open the view in the browser (=C-u= asks where to write) |
+| =t=                              | evaporview-set-time-unit         | display unit                                           |
+| =g=                              | evaporview-redraw                | redraw                                                 |
+| =C-c C-r=                        | evaporview-reload                | re-read the dump from disk, keeping signals and markers |
+| =q=                              |                                  | close the window                                       |
+
+Mouse:
+
+| Event                                  | Command                                            | Action                         |
+|----------------------------------------+----------------------------------------------------+--------------------------------|
+| click                                  | evaporview-mouse-set-marker                        | select the row, place the marker (snaps to a change of that row within one column) |
+| =M-= click, middle click               | evaporview-mouse-set-alt-marker                    | place the alt marker           |
+| =C-= wheel                             | evaporview-mouse-zoom-in / evaporview-mouse-zoom-out | zoom                         |
+| =S-= wheel, horizontal wheel           | evaporview-mouse-scroll-left / evaporview-mouse-scroll-right | scroll in time       |
+
+The plain wheel still scrolls the signal list vertically, as in any Emacs
+buffer.  VaporView pans time with the plain wheel; in Emacs that is =S-= wheel.
+In a terminal, enable =xterm-mouse-mode= for the mouse to reach Emacs.
+
+** Drawing
+
+| Glyph       | Meaning                                                     |
+|-------------+-------------------------------------------------------------|
+| =▁ ▔=       | 0 / 1 (also weak =l= / =h=)                                 |
+| =╱ ╲ │=     | rising, falling, other change inside the column             |
+| =┃=         | several changes in one column; zoom in to resolve them      |
+| =─=         | high impedance (=z=)                                        |
+| =▒=         | unknown (=x=, =u=, =w=, =-=)                                |
+| =╳ 2A═══=   | bus change and value; =…= when the value does not fit       |
+| =▁▂▃▄▅▆▇█=  | analog style, scaled from the signal's minimum to maximum   |
+
+** Browser page
+
+=B= writes the page to the temporary directory and opens it.  Everything the
+waveform buffer does is there, driven by the mouse:
+
+| Input                         | Action                                                      |
+|-------------------------------+-------------------------------------------------------------|
+| double-click / =+= in netlist | add a signal; right-click a scope to add all of it          |
+| click                         | marker (snaps to a nearby change of the clicked row)        |
+| =Alt=+click, middle click     | alt marker                                                  |
+| drag on the waveform          | zoom to the dragged range (=Esc= aborts)                    |
+| drag the ruler                | move the marker                                             |
+| wheel / =Shift=+wheel         | pan in time / scroll the signal list                        |
+| =Ctrl=+wheel                  | zoom around the pointer                                     |
+| =Left= =Right=, =n= =N=              | previous / next change of the selected signal               |
+| =Alt=+=Left= =Right=                 | move the alt marker the same way                            |
+| =Up= =Down=, =Ctrl+A=             | change selection, select all                                |
+| =Delete=, =Backspace=         | remove selected                                             |
+| =Alt=+=Up= =Down=, drag names     | reorder                                                     |
+| =1= ... =8=                   | color                                                       |
+| =F2=                          | rename                                                      |
+| =g=                           | group the selection                                         |
+| =Ctrl+0=, =+= =-=             | zoom to fit, zoom in/out                                    |
+| =Home= / =End=                | start / end                                                 |
+| =Ctrl+Z=, =Ctrl+Shift+Z=      | undo, redo                                                  |
+| =Ctrl+S=                      | download the session JSON                                   |
+| =Ctrl+F=                      | filter the netlist                                          |
+| =?=                           | all bindings                                                |
+| right-click a signal          | format, color, rename, digital/analog (step, linear), row height, split, bit range, remove |
+
+The toolbar adds edge stepping, value search, session load (file picker or
+drag-and-drop) and WaveDrom copy.  A browser can refuse clipboard access to
+=file://= pages; the JSON is then shown in a box to copy by hand.
+
+* Sessions
+
+A session is the signal list (paths, names, formats, colors, styles, bit
+ranges, groups), the markers, the visible range and the time unit, as JSON.
+Emacs saves it next to the dump as =<dump>.evaporview.json= and loads that
+file automatically on open (=evaporview-auto-load-session=).  The browser
+page starts from the session it was opened with, and its =Ctrl+S= download
+loads back into Emacs with =C-c C-l=.  Both sides use one schema;
+=test/data/session-from-viewer.json= is written by the page's serializer and
+read by the Emacs test suite.
+
+* WaveDrom
+
+=w= copies the span between the two markers as WaveJSON, at most 32 events.
+Without a clock every value change of a shown signal is an event.  With
+=C-u w=, each rising or falling edge of the chosen clock is an event, and
+every signal is sampled at that edge.  The function behind it,
+=evaporview-wavedrom-string=, returns strict JSON, ready to feed a WaveDrom
+renderer such as =ewavedrom= (=ewavedrom-render-string=).
+
+* Formats
+
+| Format   | Shows                                    | Non-0/1 bits            |
+|----------+------------------------------------------+-------------------------|
+| binary   | bits                                     | shown as is             |
+| hex      | right-justified, =x=/=z= per digit       | digit all =z= -> =z=, any other -> =x= |
+| octal    | as hex, 3 bits per digit                 | as hex                  |
+| unsigned | exact decimal at any width               | falls back to binary    |
+| signed   | two's complement, exact at any width     | falls back to binary    |
+| ascii    | one character per byte, =.= if unprintable | falls back to binary  |
+| float    | IEEE 754 half, single, double (16/32/64 bits) | falls back to binary |
+| real     | VCD =real= variables, printed like C =%g= | -                      |
+
+* Limits
+
+- VCD only.  FST, GHW and FSDB are binary formats that v1 does not read.
+  GHDL writes VCD with =--vcd=, Questa with the =vcd= commands, and Vivado
+  with =open_vcd= / =log_vcd=.
+- The whole dump is held in memory.  Measured with =make bench= on this
+  machine (AMD Ryzen AI 9 HX 470, Emacs 31.1), a 16.3 MB dump with 64
+  signals and 1.12 million value changes parses in 0.86 s (about 1.3 million
+  changes per second); writing its browser page takes 3.8 s and gives a
+  23.6 MB file, roughly 1.5 times the dump.
+- Times in the browser page are JavaScript numbers: exact up to 2^53 ticks
+  (9 seconds of simulation at 1 fs resolution).
+- A slice's bit numbers count from 0 at the right end of the variable, whatever
+  its declared range.
+
+* Development
+
+#+begin_src sh
+make            # compile (warnings are errors), ERT + bun tests, audit
+make test-el    # Emacs tests only
+make test-js    # browser viewer tests only (needs bun)
+make audit      # no processes, network, or post-27.1 functions at runtime
+make bench      # parse cost on a generated dump
+make demo       # build/counter.html from the GHDL fixture
+make verify     # drive that page in headless Chromium; state log + screenshot
+#+end_src
+
+=test/format-cases.json= is the one table both formatters answer to.  A
+change in formatting goes there first.
+
+* License
+
+GPL-3.0-or-later.
