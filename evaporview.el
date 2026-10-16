@@ -220,6 +220,10 @@
 
 (defconst evaporview--blocks "▁▂▃▄▅▆▇█")
 
+(defun evaporview--text-sig-p (sig)
+  "Non-nil when SIG carries text values (real numbers, enum literals), not bits."
+  (or (evaporview-sig-real-p sig) (evaporview-sig-enum sig)))
+
 (defun evaporview--color-face (n)
   (intern (format "evaporview-color-%d" (or n 1))))
 
@@ -277,7 +281,7 @@ FMT formats bus labels, STYLE is `digital' or `analog', COLOR is 1..8."
          (faces (make-vector ncols nil)))
     (cond
      ((and (eq style 'analog)
-           (or (evaporview-sig-real-p sig) (> (evaporview-sig-width sig) 1)))
+           (or (evaporview--text-sig-p sig) (> (evaporview-sig-width sig) 1)))
       (let* ((range (evaporview--analog-range sig fmt))
              (lo (car range)) (hi (cdr range)))
         (dotimes (c ncols)
@@ -290,7 +294,7 @@ FMT formats bus labels, STYLE is `digital' or `analog', COLOR is 1..8."
                                   (round (* 7 (/ (- x lo) (- hi lo)))))))
                        (aset chars c (aref evaporview--blocks (max 0 (min 7 lvl))))
                        (aset faces c face))))))))
-     ((and (= (evaporview-sig-width sig) 1) (not (evaporview-sig-real-p sig)))
+     ((and (= (evaporview-sig-width sig) 1) (not (evaporview--text-sig-p sig)))
       (dotimes (c ncols)
         (pcase-let ((`(,n ,before ,after) (aref cols c)))
           (cond
@@ -322,7 +326,7 @@ FMT formats bus labels, STYLE is `digital' or `analog', COLOR is 1..8."
                                     (concat label (make-string (- len (length label)) ?═)))
                                    ((= len 1) "…")
                                    (t (concat (substring label 0 (1- len)) "…"))))
-                       (vf (if (evaporview-sig-real-p sig) face
+                       (vf (if (evaporview--text-sig-p sig) face
                              (evaporview--value-face after face))))
                   (dotimes (i len)
                     (aset chars (+ c i) (aref text i))
@@ -1119,7 +1123,7 @@ or `fall') of that 1-bit signal is one, sampled at the edge."
              (lambda (it)
                (let* ((sig (evaporview--item-sig it)) (prev 'none) (data nil)
                       (bit (and (= (evaporview-sig-width sig) 1)
-                                (not (evaporview-sig-real-p sig))))
+                                (not (evaporview--text-sig-p sig))))
                       (wave
                        (if (eq it clock)
                            (concat (if (eq edge 'fall) "n" "p")
@@ -1129,7 +1133,8 @@ or `fall') of that 1-bit signal is one, sampled at the edge."
                             (let ((val (evaporview-sig-value-at sig tm)))
                               (prog1
                                   (cond ((equal val prev) ".")
-                                        ((evaporview--wd-char val))
+                                        ((and (not (evaporview--text-sig-p sig))
+                                              (evaporview--wd-char val)))
                                         (bit (if (memq (aref val 0) '(?1 ?h)) "1" "0"))
                                         (t (push (evaporview-format-value
                                                   sig val (evaporview-item-format it))
@@ -1460,9 +1465,18 @@ CLOCK and EDGE to sample on.  Return the source buffer."
   (hl-line-mode 1)
   (add-hook 'window-size-change-functions #'evaporview--on-resize nil t))
 
+(declare-function evaporview-ghw-parse-file "evaporview-ghw")
+
+(defun evaporview--parse-dump (file)
+  "Read the dump FILE: GHW by its extension, VCD otherwise."
+  (if (string-match-p "\\.ghw\\'" file)
+      (progn (require 'evaporview-ghw)
+             (evaporview-ghw-parse-file file))
+    (evaporview-vcd-parse-file file)))
+
 ;;;###autoload
 (defun evaporview-open (file)
-  "Open the VCD dump FILE in a waveform viewer and return its buffer."
+  "Open the dump FILE (VCD, or GHW from GHDL) in a viewer and return its buffer."
   (interactive
    (list (read-file-name "Waveform dump: " nil
                          (or (and (derived-mode-p 'dired-mode)
@@ -1475,7 +1489,7 @@ CLOCK and EDGE to sample on.  Return the source buffer."
     (with-current-buffer buf
       (unless (and evaporview--view (equal (evaporview-view-file evaporview--view) file))
         (evaporview-mode)
-        (let ((wave (evaporview-vcd-parse-file file)))
+        (let ((wave (evaporview--parse-dump file)))
           (setq evaporview--view
                 (evaporview-view--make
                  :wave wave :file file :items nil
@@ -1501,7 +1515,7 @@ CLOCK and EDGE to sample on.  Return the source buffer."
   (interactive)
   (let* ((v evaporview--view)
          (data (evaporview-session-data v)))
-    (setf (evaporview-view-wave v) (evaporview-vcd-parse-file (evaporview-view-file v)))
+    (setf (evaporview-view-wave v) (evaporview--parse-dump (evaporview-view-file v)))
     (evaporview-apply-session data)
     (message "Reloaded %s" (evaporview-view-file v))))
 

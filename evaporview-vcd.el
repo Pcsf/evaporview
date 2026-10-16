@@ -45,7 +45,7 @@
   name path type width range id)
 
 (cl-defstruct (evaporview-sig (:constructor evaporview-sig--make))
-  id width real-p times values)
+  id width real-p times values enum)
 
 (defun evaporview-var-display-name (var)
   "Return VAR's name followed by its declared range."
@@ -218,12 +218,84 @@ Return a hash table from identifier code to signal."
     (setf (evaporview-wave-start wave) (or start 0)
           (evaporview-wave-end wave) time)))
 
+(defun evaporview-vcd--finish-sig (sig)
+  "Turn SIG's accumulated change lists into vectors in time order."
+  (setf (evaporview-sig-times sig) (vconcat (nreverse (evaporview-sig-times sig)))
+        (evaporview-sig-values sig) (vconcat (nreverse (evaporview-sig-values sig))))
+  sig)
+
+(defun evaporview-vcd--bit-index (var)
+  "The bit number of a one-bit VAR declared as NAME [N], else nil."
+  (let ((r (evaporview-var-range var)))
+    (and r (= (evaporview-var-width var) 1)
+         (string-match "\\`\\[\\([0-9]+\\)\\]\\'" r)
+         (string-to-number (match-string 1 r)))))
+
+(defun evaporview-vcd--join-sigs (members id)
+  "One signal whose value concatenates MEMBERS, first member leftmost."
+  (let ((out (evaporview-sig--make :id id :width (length members)))
+        (times (sort (delete-dups (cl-mapcan (lambda (s) (append (evaporview-sig-times s) nil))
+                                             members))
+                     #'<)))
+    (dolist (tm times)
+      (evaporview-vcd--change out tm (mapconcat (lambda (s) (or (evaporview-sig-value-at s tm) "x"))
+                                                members "")))
+    (evaporview-vcd--finish-sig out)))
+
+(defun evaporview-vcd--merge-bits (wave)
+  "Join vectors that a simulator wrote as one-bit variables into buses.
+Questa, for one, declares a vector `cnt' as `cnt [3]' ... `cnt [0]'."
+  (let ((sigs (evaporview-wave-sigs wave))
+        (paths (evaporview-wave-paths wave))
+        (fate (make-hash-table :test 'eq)))
+    (cl-labels
+        ((walk (scope)
+           (let ((groups nil))
+             (dolist (v (evaporview-scope-vars scope))
+               (when (evaporview-vcd--bit-index v)
+                 (let ((g (assoc (evaporview-var-name v) groups)))
+                   (if g (setcdr g (append (cdr g) (list v)))
+                     (push (list (evaporview-var-name v) v) groups)))))
+             (dolist (g groups)
+               (let ((members (cdr g)))
+                 (when (cdr members)
+                   (let* ((first (car members))
+                          (id (concat "~" (evaporview-var-path first)))
+                          (merged (evaporview-var--make
+                                   :name (car g) :path (evaporview-var-path first)
+                                   :type (evaporview-var-type first) :width (length members)
+                                   :range (format "[%d:%d]"
+                                                  (evaporview-vcd--bit-index first)
+                                                  (evaporview-vcd--bit-index (car (last members))))
+                                   :id id)))
+                     (puthash id (evaporview-vcd--join-sigs
+                                  (mapcar (lambda (v) (gethash (evaporview-var-id v) sigs)) members)
+                                  id)
+                              sigs)
+                     (puthash (evaporview-var-path first) merged paths)
+                     (puthash first merged fate)
+                     (dolist (v (cdr members)) (puthash v 'drop fate))))))
+             (setf (evaporview-scope-vars scope)
+                   (evaporview-vcd--apply-fate (evaporview-scope-vars scope) fate))
+             (mapc #'walk (evaporview-scope-children scope)))))
+      (walk (evaporview-wave-root wave)))
+    (when (> (hash-table-count fate) 0)
+      (setf (evaporview-wave-vars wave)
+            (vconcat (evaporview-vcd--apply-fate (append (evaporview-wave-vars wave) nil) fate))))))
+
+(defun evaporview-vcd--apply-fate (vars fate)
+  (delq nil (mapcar (lambda (v)
+                      (let ((f (gethash v fate)))
+                        (cond ((eq f 'drop) nil) (f f) (t v))))
+                    vars)))
+
 (defun evaporview-vcd-parse-buffer (&optional file)
   "Parse the VCD text in the current buffer; FILE is recorded as its origin."
   (save-excursion
     (goto-char (point-min))
     (let ((wave (evaporview-wave--make :file file :timescale '(1 . "ns"))))
       (evaporview-vcd--parse-body wave (evaporview-vcd--parse-header wave))
+      (evaporview-vcd--merge-bits wave)
       wave)))
 
 (defun evaporview-vcd-parse-string (string)

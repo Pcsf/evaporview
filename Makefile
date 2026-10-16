@@ -8,7 +8,7 @@ BUN   ?= bun
 # ewavedrom is optional; its integration tests run when it is checked out here.
 EWAVEDROM ?= ../ewavedrom
 BATCH  = $(EMACS) -Q --batch -L . $(if $(wildcard $(EWAVEDROM)/ewavedrom.el),-L $(EWAVEDROM))
-EL     = evaporview-vcd.el evaporview-format.el evaporview.el evaporview-html.el
+EL     = evaporview-vcd.el evaporview-format.el evaporview-ghw.el evaporview.el evaporview-html.el
 BUILD  = build
 
 .PHONY: all compile test test-el test-js audit bench demo verify examples showcase try clean
@@ -21,7 +21,7 @@ compile:
 test: test-el test-js
 
 test-el: compile
-	$(BATCH) -l test/evaporview-test.el -f ert-run-tests-batch-and-exit
+	$(BATCH) -l test/evaporview-test.el -l test/evaporview-ghw-test.el -f ert-run-tests-batch-and-exit
 
 test-js:
 	$(BUN) test test/viewer.test.ts
@@ -41,7 +41,7 @@ audit: | $(BUILD)
 	@if grep -nE '$(FORBIDDEN_CALLS)' $(EL); then echo "audit: runtime reaches outside Emacs"; exit 1; fi
 	@if grep -nE '\($(EMACS28_FNS)' $(EL); then echo "audit: runtime needs Emacs 28+"; exit 1; fi
 	@if grep -nE '$(JS_EXTERNAL)' assets/*; then echo "audit: viewer reaches the network"; exit 1; fi
-	@if grep -nE "^\(require '" $(EL) | grep -vE "'(cl-lib|subr-x|json|evaporview|evaporview-vcd|evaporview-format|evaporview-html|browse-url)\)"; then \
+	@if grep -nE "^\(require '" $(EL) | grep -vE "'(cl-lib|subr-x|json|evaporview|evaporview-vcd|evaporview-format|evaporview-ghw|evaporview-html|browse-url)\)"; then \
 	  echo "audit: unexpected require"; exit 1; fi
 	@echo "audit: planted cases caught, runtime clean"
 
@@ -79,11 +79,12 @@ verify: demo
 	@echo "verify: $(BUILD)/driven.json (state log), $(BUILD)/driven.png (view)"
 
 # Example dumps come from GHDL (dev only); their sessions from examples/sessions.el.
-EXAMPLES = spi uart nco
+EXAMPLES = spi uart nco fsm
 examples:
 	cd examples && for t in $(EXAMPLES); do \
 	  ghdl -a --std=08 $${t}_tb.vhd && ghdl -e --std=08 $${t}_tb && \
-	  ghdl -r --std=08 $${t}_tb --vcd=$$t.vcd --stop-time=5us || exit 1; \
+	  if [ $$t = fsm ]; then fmt="--wave=$$t.ghw"; else fmt="--vcd=$$t.vcd"; fi; \
+	  ghdl -r --std=08 $${t}_tb $$fmt --stop-time=5us || exit 1; \
 	done; rm -f *.o *.cf $(addsuffix _tb,$(EXAMPLES))
 	$(BATCH) -l examples/sessions.el --eval '(evaporview-examples-write-sessions)'
 

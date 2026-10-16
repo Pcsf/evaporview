@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "file": "fsm.ghw",
+  "marker": 65000000,
+  "altMarker": 265000000,
+  "viewStart": 0,
+  "viewEnd": 726050420,
+  "timeUnit": "ns",
+  "items": [
+    {
+      "type": "signal",
+      "path": "fsm_tb.clk",
+      "name": null,
+      "format": "binary",
+      "color": 2,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "fsm_tb.start",
+      "name": null,
+      "format": "binary",
+      "color": 6,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "group",
+      "name": "r",
+      "expanded": true,
+      "items": [
+        {
+          "type": "signal",
+          "path": "fsm_tb.dut.r.state",
+          "name": null,
+          "format": "hex",
+          "color": 4,
+          "style": "digital",
+          "slice": null
+        },
+        {
+          "type": "signal",
+          "path": "fsm_tb.dut.r.count",
+          "name": null,
+          "format": "unsigned",
+          "color": 1,
+          "style": "digital",
+          "slice": null
+        },
+        {
+          "type": "signal",
+          "path": "fsm_tb.dut.r.blinks",
+          "name": null,
+          "format": "unsigned",
+          "color": 7,
+          "style": "digital",
+          "slice": null
+        }
+      ]
+    },
+    {
+      "type": "signal",
+      "path": "fsm_tb.led",
+      "name": null,
+      "format": "binary",
+      "color": 5,
+      "style": "digital",
+      "slice": null
+    },
+    {
+      "type": "signal",
+      "path": "fsm_tb.done",
+      "name": null,
+      "format": "binary",
+      "color": 3,
+      "style": "digital",
+      "slice": null
+    }
+  ]
+}

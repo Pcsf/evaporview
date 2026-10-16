@@ -70,6 +70,9 @@ describe("time formatting", () => {
     expect(V.niceStep(1.5)).toBe(2);
     expect(V.formatFrequency(1e-8)).toBe("100 MHz");
     expect(V.formatFrequency(1e9 * 1e-15)).toBe("1 MHz");
+    const st = { width: 2, real: false, enum: ["IDLE", "LOAD", "SHIFT"] };
+    expect(V.isText(st)).toBe(true);
+    expect(V.formatValue(st, "LOAD", "hex", null)).toBe("LOAD");
   });
 });
 

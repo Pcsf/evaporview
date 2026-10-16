@@ -61,9 +61,29 @@
   (evaporview-set-marker (evaporview-examples--ns 1000))
   (evaporview-set-alt-marker (evaporview-examples--ns 2000)))
 
+(defun evaporview-examples-fsm ()
+  (evaporview-examples--add "fsm_tb.clk" :color 2)
+  (evaporview-examples--add "fsm_tb.start" :color 6)
+  (evaporview-examples--add "fsm_tb.dut.r.state" :color 4)
+  (evaporview-examples--add "fsm_tb.dut.r.count" :format 'unsigned :color 1)
+  (evaporview-examples--add "fsm_tb.dut.r.blinks" :format 'unsigned :color 7)
+  (evaporview-examples--add "fsm_tb.led" :color 5)
+  (evaporview-examples--add "fsm_tb.done" :color 3)
+  (evaporview-examples--group "r" 2 4)
+  (evaporview-set-marker (evaporview-examples--ns 65))
+  (evaporview-set-alt-marker (evaporview-examples--ns 265)))
+
+(defconst evaporview-examples '("spi" "uart" "nco" "fsm")
+  "The examples, in gallery order.")
+
+(defun evaporview-examples-file (name)
+  "The dump of example NAME; the FSM is GHW because its state lives in records."
+  (expand-file-name (concat name (if (equal name "fsm") ".ghw" ".vcd"))
+                    evaporview-examples-dir))
+
 (defun evaporview-examples-open (name)
-  "Open example NAME (\"spi\", \"uart\" or \"nco\") with a fresh curated view."
-  (let* ((file (expand-file-name (concat name ".vcd") evaporview-examples-dir))
+  "Open example NAME (one of `evaporview-examples') with a fresh curated view."
+  (let* ((file (evaporview-examples-file name))
          (evaporview-auto-load-session nil)
          (buf (evaporview-open file)))
     (with-current-buffer buf
@@ -76,7 +96,7 @@
 
 (defun evaporview-examples-write-sessions ()
   "Write the session file of every example next to its dump."
-  (dolist (name '("spi" "uart" "nco"))
+  (dolist (name evaporview-examples)
     (with-current-buffer (evaporview-examples-open name)
       (let ((evaporview--width-override 120))
         (evaporview-zoom-fit)

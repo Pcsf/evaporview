@@ -1,9 +1,9 @@
 ---
 phase: complete
-progress: 21/21
+progress: 24/24
 task: "VaporView-style waveform viewer for Emacs that runs under corporate IT restrictions"
 slug: evaporview
-iteration: 2
+iteration: 3
 started: 2026-10-16T00:00:00Z
 updated: 2026-10-16T00:00:00Z
 principal_stated_goal: "please create a emacs pkg that reproduces the functionalities of vaporview for visual studio code (https://github.com/Lramseyer/vaporview). It should be able to run on corporative environment with lots of IT restrictions though. You can scafold the viewer using html (exported like done in org) if it makes more feaseble."
@@ -100,6 +100,19 @@ network.
 - [x] ISC-19: Color N is the same in both viewers (light and dark). Probe:
   Emacs defface hexes equal viewer.css `--c1..--c8`; gallery viewed.
 
+- [x] ISC-20: A Questa VCD that splits vectors into bits (`cnt [3]`..`cnt [0]`,
+  record fields under `$scope fork`) shows each vector as one bus; no bit is
+  lost to a path collision. Probe: ERT on test/data/rec-questa.vcd (real
+  Questa 2021.2 dump).
+- [x] ISC-21: A GHDL GHW file opens like a VCD: records appear as scopes with
+  their fields, std_logic vectors as buses, enums by name, integers and reals
+  with their values, matching what GHDL simulated. Probe: ERT on
+  test/data/rec.ghw and a richer GHW fixture, cross-checked against
+  `ghwdump` output.
+- [x] ISC-22: README says which simulator flows keep records (GHDL `--wave`,
+  Questa `vcd add -r`) and which silently lose them (GHDL `--vcd`, Questa
+  `wlf2vcd`). Probe: Read README.
+
 ## Anti-claims
 
 - [x] ISC-A1: No runtime dependency beyond Emacs 27.1+ and any browser: no
@@ -160,3 +173,17 @@ viewer's pure functions; Interceptor for the live page.
 - ISC-A2: SELF -- written from the feature list; VaporView source never fetched.
 - ISC-17..19 (iteration 2): `make all` ERT 22/22, bun 81/0, audit clean; JS
   frequency bug red on committed viewer.js, green on fix.
+- ISC-20: ERT `questa-split-vectors` on a real Questa 2021.2 dump (r.cnt
+  "0000" at 0, "0001" at 15 fs-ticks); red before the merge, green after.
+- Iteration 3 measurements (GHDL 6.0.0, Questa Starter 2021.2, rec_tb.vhd):
+  GHDL --vcd keeps only clk/rst; GHDL --wave keeps records; Questa `vcd add -r`
+  keeps records, vectors bit-split; Questa `wlf2vcd` drops records, exit 0.
+- ISC-21: test/evaporview-ghw-test.el 15/15 against ghwdump-derived values;
+  three planted reader bugs (sleb sign, bit order, enum index) each caught
+  after adding ghw_int_tb (the sign mutant survived the agent's data set).
+  examples/fsm.ghw shows r/rin fields and enum names in both viewers.
+- ISC-22: README "Getting a dump from your simulator" table, measured flows only.
+- Decisions (iteration 3): GHW reader built by a delegated agent from libghw.c
+  (v6.0.0, archived in the vault as 41-24/25); empty scopes are pruned; enum
+  literals keep GHDL's lowercase; `evaporview--text-sig-p` marks real and enum
+  signals as text, which also fixed real values exported to WaveDrom as "x".

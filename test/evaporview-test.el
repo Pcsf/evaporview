@@ -154,6 +154,44 @@ b11111111 b
                                             'real)
                    "-1"))))
 
+(ert-deftest evaporview-test-questa-split-vectors ()
+  ;; Real Questa 2021.2 output: records under `$scope fork', vectors as bits.
+  (let* ((w (evaporview-vcd-parse-file (evaporview-test--file "data/rec-questa.vcd")))
+         (cnt (evaporview-wave-find-var w "rec_tb.r.cnt"))
+         (rin (evaporview-wave-find-var w "rec_tb.rin.cnt")))
+    (should (equal (sort (mapcar #'evaporview-var-path (evaporview-wave-vars w)) #'string<)
+                   '("rec_tb.clk" "rec_tb.r.busy" "rec_tb.r.cnt"
+                     "rec_tb.rin.busy" "rec_tb.rin.cnt" "rec_tb.rst")))
+    (should (= (evaporview-var-width cnt) 4))
+    (should (equal (evaporview-var-range cnt) "[3:0]"))
+    (should (equal (evaporview-var-display-name cnt) "cnt[3:0]"))
+    (should (equal (mapcar #'evaporview-var-name
+                           (evaporview-scope-vars
+                            (cadr (evaporview-scope-children
+                                   (car (evaporview-scope-children (evaporview-wave-root w)))))))
+                   '("cnt" "busy")))
+    (let ((s (evaporview-wave-var-sig w cnt)) (r (evaporview-wave-var-sig w rin)))
+      (should (equal (evaporview-sig-value-at s 0) "0000"))
+      (should (equal (evaporview-sig-value-at s 15) "0001"))
+      (should (equal (evaporview-sig-value-at r 0) "0001"))
+      (should (equal (evaporview-sig-value-at r 15) "0010"))
+      (should (equal (aref (evaporview-sig-times s) 0) 0)))))
+
+(ert-deftest evaporview-test-enum-signal ()
+  ;; State-machine types arrive from GHW with their literal names as values.
+  (let ((fsm (evaporview-sig--make :id "f" :width 2 :enum ["IDLE" "LOAD" "SHIFT"]
+                                   :times [0 50 100] :values ["IDLE" "LOAD" "SHIFT"]))
+        (onoff (evaporview-sig--make :id "o" :width 1 :enum ["OFF" "ON"]
+                                     :times [0 50] :values ["OFF" "ON"])))
+    (should (equal (evaporview-format-value fsm "LOAD" 'hex) "LOAD"))
+    (should (= (evaporview-value-number fsm "SHIFT" 'hex) 2.0))
+    (let ((row (evaporview-render-row fsm 'hex 'digital 0 10 12 1)))
+      (should (equal (substring-no-properties row) "IDLE═╳LOAD╳…"))
+      (should (eq (get-text-property 0 'face row) 'evaporview-color-1)))
+    ;; A two-literal enum is still drawn with its names, not as a bit.
+    (should (equal (substring-no-properties (evaporview-render-row onoff 'hex 'digital 0 10 8))
+                   "OFF══╳ON"))))
+
 (ert-deftest evaporview-test-open-does-not-modify-dump ()
   (let* ((file (evaporview-test--file "data/counter.vcd"))
          (before (with-temp-buffer (insert-file-contents-literally file)
@@ -441,6 +479,17 @@ b11111111 b
     (let* ((json-object-type 'alist) (json-array-type 'list) (json-key-type 'symbol)
            (doc (json-read-from-string (evaporview-wavedrom-string))))
       (should (= (length (alist-get 'wave (car (alist-get 'signal doc)))) 32)))))
+
+(ert-deftest evaporview-test-wavedrom-real ()
+  ;; Real values are text, not bits: they are data lanes, never "x".
+  (evaporview-test--with-view
+    (evaporview-add-signal "counter_tb.ana")
+    (evaporview-set-marker 50000000)
+    (evaporview-set-alt-marker 66000000)
+    (let* ((json-object-type 'alist) (json-array-type 'list) (json-key-type 'symbol)
+           (lane (car (alist-get 'signal (json-read-from-string (evaporview-wavedrom-string))))))
+      (should (equal (alist-get 'wave lane) "===="))
+      (should (equal (alist-get 'data lane) '("0" "-1" "-0.75" "-0.5"))))))
 
 (ert-deftest evaporview-test-wavedrom-head ()
   (evaporview-test--with-view

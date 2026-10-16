@@ -1,0 +1,90 @@
+$date
+	Fri Oct 16 09:44:24 2026
+$end
+$version
+	Questa Intel Starter FPGA Edition Version 2021.2
+$end
+$timescale
+	1ns
+$end
+
+$scope module rec_tb $end
+$var wire 1 ! clk $end
+$var wire 1 " rst $end
+
+$scope fork r $end
+$var wire 1 # cnt [3] $end
+$var wire 1 $ cnt [2] $end
+$var wire 1 % cnt [1] $end
+$var wire 1 & cnt [0] $end
+$var wire 1 ' busy $end
+$upscope $end
+
+$scope fork rin $end
+$var wire 1 ( cnt [3] $end
+$var wire 1 ) cnt [2] $end
+$var wire 1 * cnt [1] $end
+$var wire 1 + cnt [0] $end
+$var wire 1 , busy $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+$dumpvars
+0!
+1"
+0'
+0#
+0$
+0%
+0&
+1,
+0(
+0)
+0*
+1+
+$end
+#5
+1!
+#10
+0!
+#12
+0"
+#15
+1!
+1'
+1&
+0,
+0+
+1*
+#20
+0!
+#25
+1!
+0'
+0&
+1%
+1,
+1+
+#30
+0!
+#35
+1!
+1'
+1&
+0,
+0+
+0*
+1)
+#40
+0!
+#45
+1!
+0'
+0&
+0%
+1$
+1,
+1+
+#50
+0!

@@ -136,8 +136,12 @@ function sliceBits(bits, msb, lsb) {
 function sliceWidth(sig, slice) { return slice ? slice[0] - slice[1] + 1 : sig.width; }
 
 /* val: raw dump value; sig: {real:boolean}. A real signal ignores fmt. */
+/* Real and enumeration signals carry text values, not bit strings. */
+function isText(sig) { return !!(sig.real || sig.enum); }
+
 function formatValue(sig, val, fmt, slice) {
   if (val === null || val === undefined) return '';
+  if (sig.enum) return String(val);
   if (sig.real) return formatReal(val);
   return formatBits(slice ? sliceBits(val, slice[0], slice[1]) : val, fmt);
 }
@@ -229,7 +233,7 @@ function lastIdxLT(t, x) {
 
 function keyAt(sig, k, slice) {
   var v = sig.v[k];
-  return slice && !sig.real ? sliceBits(v, slice[0], slice[1]) : v;
+  return slice && !isText(sig) ? sliceBits(v, slice[0], slice[1]) : v;
 }
 
 function valueAt(sig, time) {
@@ -263,7 +267,7 @@ function isEdge(prev, cur, kind) {
 
 /* kind: 'rising' | 'falling'. Only for one-bit values. */
 function findEdge(sig, time, dir, kind, slice) {
-  if (sliceWidth(sig, slice) !== 1 || sig.real) return null;
+  if (sliceWidth(sig, slice) !== 1 || isText(sig)) return null;
   var t = sig.t, n = t.length, k;
   if (dir > 0) {
     for (k = Math.max(1, lastIdxLE(t, time) + 1); k < n; k++) {
@@ -334,14 +338,14 @@ function waveDrom(lanes, t0, t1, clock, max) {
   var signal = lanes.map(function (ln) {
     var wave = '', data = [], prev = null;
     var w = sliceWidth(ln.sig, ln.slice);
-    var one = w === 1 && !ln.sig.real;
+    var one = w === 1 && !isText(ln.sig);
     for (i = 0; i < events.length; i++) {
       var raw = valueAt(ln.sig, events[i]);
-      var key = raw === null ? 'x' : (ln.slice && !ln.sig.real ? sliceBits(raw, ln.slice[0], ln.slice[1]) : raw);
+      var key = raw === null ? 'x' : (ln.slice && !isText(ln.sig) ? sliceBits(raw, ln.slice[0], ln.slice[1]) : raw);
       if (clock && ln.clock) { wave += i === 0 ? (clock.edge === 'fall' ? 'n' : 'p') : '.'; continue; }
       var ch;
       if (one) ch = waveBitChar(key);
-      else if (ln.sig.real || isBin(key)) ch = '=';
+      else if (isText(ln.sig) || isBin(key)) ch = '=';
       else ch = /^z+$/.test(key) ? 'z' : 'x';
       var same = i > 0 && (one ? waveBitChar(prev) === ch : prev === key);
       if (same) wave += '.';
@@ -479,14 +483,15 @@ function scanSegments(t, vs, ve, tpp, onSeg, onDense) {
 }
 
 function numericCache(sig, item) {
-  var mode = sig.real ? 'real' : (item.format === 'signed' ? 'signed' : (item.format === 'float' ? 'float' : 'unsigned'));
+  var mode = sig.enum ? 'enum' : sig.real ? 'real' : (item.format === 'signed' ? 'signed' : (item.format === 'float' ? 'float' : 'unsigned'));
   var key = mode + '|' + (item.slice && !sig.real ? item.slice.join(':') : '');
   if (!sig._num) sig._num = {};
   if (sig._num[key]) return sig._num[key];
   var n = sig.t.length, vals = new Float64Array(n), min = Infinity, max = -Infinity;
   for (var k = 0; k < n; k++) {
     var x = NaN, v = sig.v[k];
-    if (sig.real) x = parseFloat(v);
+    if (sig.enum) x = sig.enum.indexOf(v);
+    else if (sig.real) x = parseFloat(v);
     else {
       var b = item.slice ? sliceBits(v, item.slice[0], item.slice[1]) : v;
       if (isBin(b)) {
@@ -930,7 +935,7 @@ function bootUI() {
 
   function splitItem(item, size) {
     var sig = sigOf(item);
-    if (!sig || sig.real) return;
+    if (!sig || isText(sig)) return;
     var w = itemWidth(item), lsb0 = item.slice ? item.slice[1] : 0, msb0 = lsb0 + w - 1;
     var kids = [];
     for (var hi = msb0; hi >= lsb0; hi -= size) {
@@ -946,14 +951,14 @@ function bootUI() {
   }
 
   function splitSelected(size) {
-    var sigs = selectedSignals().filter(function (i) { return itemWidth(i) > 1 && !(sigOf(i) || {}).real; });
+    var sigs = selectedSignals().filter(function (i) { return itemWidth(i) > 1 && !isText(sigOf(i) || {}); });
     if (!sigs.length) { flash('Select a multi-bit signal to split'); return; }
     mutate(function () { sigs.forEach(function (i) { splitItem(i, size); }); A.sel = {}; A.primary = null; });
   }
 
   function newFromRange(item) {
     var sig = sigOf(item);
-    if (!sig || sig.real) return;
+    if (!sig || isText(sig)) return;
     askText('New signal from bit range', 'Bit range as msb:lsb (or a single bit), 0 to ' + (sig.width - 1), '', function (txt) {
       var m = /^\s*(\d+)\s*(?::\s*(\d+))?\s*$/.exec(txt);
       if (!m) { flash('Not a bit range: ' + txt); return; }
@@ -1057,7 +1062,7 @@ function bootUI() {
 
   function edgeJump(kind, dir) {
     var item = primarySignal();
-    if (!item || itemWidth(item) !== 1 || sigOf(item).real) { flash('Select a 1-bit signal first'); return; }
+    if (!item || itemWidth(item) !== 1 || isText(sigOf(item))) { flash('Select a 1-bit signal first'); return; }
     var cur = A.marker === null ? A.vS - 1 : A.marker;
     var t = findEdge(sigOf(item), cur, dir, kind, item.slice);
     if (t === null) { flash('No ' + (dir > 0 ? 'next ' : 'previous ') + kind + ' edge'); return; }
@@ -1240,7 +1245,7 @@ function bootUI() {
     var color = A.theme.c[item.color] || A.theme.c[1];
     var width = sliceWidth(sig, item.slice);
     if (isAnalog(item)) drawAnalog(item, sig, y, h, color, pp);
-    else if (width === 1 && !sig.real) drawBit(item, sig, y, h, color, pp);
+    else if (width === 1 && !isText(sig)) drawBit(item, sig, y, h, color, pp);
     else drawBus(item, sig, y, h, color, pp);
   }
 
@@ -1278,7 +1283,7 @@ function bootUI() {
     ctx.lineWidth = 1.2;
     scanSegments(sig.t, A.vS, A.vE, pp, function (k, xs, xe, clipL, clipR) {
       var key = keyAt(sig, k, item.slice);
-      var kind = (sig.real || isBin(key)) ? 'ok' : (/^z+$/.test(key) ? 'z' : 'x');
+      var kind = (isText(sig) || isBin(key)) ? 'ok' : (/^z+$/.test(key) ? 'z' : 'x');
       if (kind === 'z') {
         ctx.strokeStyle = T.z; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.moveTo(xs, mid); ctx.lineTo(xe, mid); ctx.stroke();
@@ -1626,7 +1631,7 @@ function bootUI() {
       return { label: h + ' px', checked: cur.height === h, action: function () { setHeight(h); } };
     });
     hm.unshift({ label: 'Default', action: function () { setHeight(0); } });
-    var multi = itemWidth(cur) > 1 && !(sigOf(cur) || {}).real;
+    var multi = itemWidth(cur) > 1 && !isText(sigOf(cur) || {});
     showMenu(x, y, [
       { label: 'Format', items: fm },
       { label: 'Color', items: cm },
@@ -1858,7 +1863,7 @@ function bootUI() {
     if (A.marker === null || A.altMarker === null) { flash('Place the marker and the alt marker first (Alt+click)'); return; }
     var items = allSignalItems();
     if (!items.length) { flash('No signals to export'); return; }
-    var ones = items.filter(function (i) { return itemWidth(i) === 1 && !sigOf(i).real; });
+    var ones = items.filter(function (i) { return itemWidth(i) === 1 && !isText(sigOf(i)); });
     var body = document.createElement('div');
     body.className = 'wdform';
     var mk = function (html) { var d = document.createElement('div'); d.innerHTML = html; return d; };
@@ -2077,6 +2082,7 @@ if (typeof document !== 'undefined') {
 
 if (typeof module !== 'undefined') {
   module.exports = {
+    isText: isText,
     formatBits: formatBits, formatReal: formatReal, formatG: formatG, formatValue: formatValue,
     sliceBits: sliceBits, formatTime: formatTime, ticksPerUnit: ticksPerUnit, autoUnit: autoUnit,
     niceStep: niceStep, formatFrequency: formatFrequency,

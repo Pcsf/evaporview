@@ -154,6 +154,7 @@ Formats that cannot show non-2-state bits fall back to binary."
 (defun evaporview-format-value (sig value fmt)
   "Format VALUE of SIG in FMT; nil VALUE is shown as empty."
   (cond ((null value) "")
+        ((evaporview-sig-enum sig) value)
         ((evaporview-sig-real-p sig) (evaporview-format-real value))
         (t (evaporview-format-bits value fmt))))
 
@@ -166,6 +167,9 @@ Formats that cannot show non-2-state bits fall back to binary."
 (defun evaporview-value-number (sig value fmt)
   "VALUE of SIG as a float for analog drawing, or nil if not 2-state."
   (cond ((null value) nil)
+        ((evaporview-sig-enum sig)
+         (let ((i (cl-position value (evaporview-sig-enum sig) :test (function equal))))
+           (and i (float i))))
         ((evaporview-sig-real-p sig) (float (string-to-number value)))
         ((not (evaporview-format--2state-p value)) nil)
         ((eq fmt 'float) (evaporview-format--float value))

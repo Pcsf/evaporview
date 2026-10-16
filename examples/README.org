@@ -1,8 +1,8 @@
 #+TITLE: evaporview examples
 #+STARTUP: inlineimages
 
-Three small GHDL testbenches, each dumped to VCD with a curated session next
-to it.  =M-x evaporview-open= on any =.vcd= here loads that session on its
+Four small GHDL testbenches, each dumped with a curated session next
+to it.  =M-x evaporview-open= on any dump here loads that session on its
 own: signals, formats, colors, groups and both markers.  =make try= in the
 repository root opens the SPI example with its netlist and a WaveDrom preview.
 
@@ -11,6 +11,7 @@ repository root opens the SPI example with its netlist and a WaveDrom preview.
 | SPI     | =spi_tb.vhd=   | mode 0 transfer, groups, clocked WaveDrom export via ewavedrom |
 | UART    | =uart_tb.vhd=  | "Hi!" on a serial line, ASCII format, unclocked WaveDrom      |
 | NCO     | =nco_tb.vhd=   | sine NCO with an amplitude ramp: analog, signed, real, float32 |
+| FSM     | =fsm_tb.vhd=   | two-process design: records and an enum state, from GHW        |
 
 Images are rebuilt with =make showcase=; the dumps and sessions with
 =make examples=.
@@ -79,3 +80,24 @@ every microsecond.  The output is kept three ways: a VHDL =real=, a 12-bit
   matching the =sine= row to six digits.
 - =f= on =sample= with =unsigned= shows the two's-complement bits read the
   other way.
+
+* FSM: a two-process design, read from GHW
+
+=fsm_tb.vhd= is a blink controller in the two-process style: all state in a
+record =reg_t= (=state=, =count=, =blinks=, =led=), held in =r= and computed
+into =rin=.  GHDL's VCD output drops record signals without a warning, so the
+same run as VCD holds only the ports and testbench signals.  The dump here is GHW
+(=ghdl -r fsm_tb --wave=fsm.ghw=), which keeps them: =r= and =rin= appear in
+the netlist under =dut= with their fields, and =state= shows its enumeration
+literals by name.
+
+[[file:img/fsm-emacs.png]]
+
+[[file:img/fsm-browser.png]]
+
+The markers sit on two consecutive rising edges of =led=, so the header reads
+=200 ns (5 MHz)=: ten clock cycles on, ten off.
+
+- On =state=, =/= and =finished= jumps to the end of the third blink.
+- =A= on =count= draws the counter's sawtooth.
+- =l= opens the netlist: =rin= holds the next-state values, one cycle ahead of =r=.

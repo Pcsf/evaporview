@@ -57,9 +57,8 @@
   (frame-set-background-mode (selected-frame))
   (make-directory evaporview-showcase-out t)
   (make-directory evaporview-showcase-img t)
-  (dolist (name '("spi" "uart" "nco"))
-    (with-current-buffer (evaporview-open (expand-file-name (concat name ".vcd")
-                                                            evaporview-examples-dir))
+  (dolist (name evaporview-examples)
+    (with-current-buffer (evaporview-open (evaporview-examples-file name))
       (let ((evaporview--width-override 104))
         (evaporview-zoom-fit)
         (evaporview-showcase--write
